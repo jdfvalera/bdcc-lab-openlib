@@ -1,102 +1,49 @@
-# OpenLibrary Data Analysis (1900–2025)
+# Open Library Subject Analysis
 
-This repository contains Python scripts for analyzing OpenLibrary data, focusing on works, authors, and editions published between 1900 and 2025. The analysis involves partitioning large datasets for efficient processing and performing a comprehensive 10-step Exploratory Data Analysis (EDA) using PySpark. The project generates insights into publication trends, geographic distributions, subjects, and author contributions over time.
+## Overview
 
-## Project Overview
+This project analyzes the Open Library dataset, comprising 89,677,650 bibliographic records, to uncover global publishing trends and subject distributions from the 1900s to the 2020s. Using Apache Spark and Apache Parquet, the pipeline processes a large-scale, semi-structured dataset to reveal temporal and geographic trends, subject co-occurrences, and thematic evolution. Key findings include a publishing peak in the 2000s (26.8M editions), dominance by the USA and UK (27M and 7M editions), an average of 5.1 subjects per publication, and universal subjects like history across 249 countries.
 
-The goal is to explore OpenLibrary data to understand:
-- Temporal trends in publications (by decade).
-- Geographic contributions (top countries).
-- Dominant subjects and their evolution.
-- Key authors and their prominence across decades and countries.
+The pipeline is split across three Jupyter notebooks:
+1. **`openlib_partitions.ipynb`**: Reads the raw Open Library text file and partitions it into initial DataFrames (editions, works, authors).
+2. **`openlib_working_df_partitions.ipynb`**: Preprocesses the editions DataFrame to create two working DataFrames (`df_eds`, `df_exp`) for analysis.
+3. **`openlib_final.ipynb`**: Performs analyses on publication trends, subject diversity, and co-occurrences.
 
-The analysis is split into two main phases:
-1. **Partitioning**: Saving DataFrames as partitioned Parquet files to enable parallelized processing.
-2. **EDA**: A 10-step analysis plan covering timelines, top countries, subjects, authors, and their intersections.
+The project addresses questions such as:
+- How have publication volumes evolved, and which countries drive global publishing?
+- How do subjects co-occur, and how do they vary by region and decade?
 
-## Dataset Description
+## Features
 
-The analysis uses three main DataFrames:
-- **`df_works_final`**:
-  - Columns: `work_key`, `first_publish_date`, `subjects` (array), `author_keys` (array), `decade` (e.g., "1900s", "1910s", ..., "2020s", "Unknown").
-  - Source: OpenLibrary works data, filtered for 1900–2025.
-  - Partitioned by `partition_decade` (~12–14 partitions).
-- **`df_authors_final`**:
-  - Columns: `author_key`, `name`.
-  - Source: OpenLibrary authors data.
-  - Saved with default partitions.
-- **`df_eds_final`**:
-  - Columns: `work_keys` (array), `publish_country`.
-  - Source: OpenLibrary editions data, linking works to publication countries.
-  - Assumed partitioned (e.g., by hashed `work_key` or default).
+- **Data Ingestion**: Processes a 41.89 GB compressed text file into structured DataFrames.
+- **Scalable Pipeline**: Leverages PySpark for transformations, Parquet for storage, and partitioning by decade/country for efficiency.
+- **Analyses**:
+  - Publication trends by decade and country.
+  - Subject diversity and co-occurrence patterns.
+  - Temporal emergence of new subjects.
+  - Geographic subject distribution.
+- **Outputs**: Parquet files and statistical summaries for further exploration.
 
-The DataFrames are stored as Parquet files in the `output/` directory after partitioning.
+## Usage
 
-## Analysis Steps
+1. **Run the Pipeline**:
+   - Open each notebook in Jupyter Notebook or JupyterLab:
+     ```bash
+     jupyter notebook
+     ```
+   - Execute notebooks in order:
+     - **1. `openlib_partitions.ipynb`**: Reads `ol_cdump_latest.txt.gz`, parses JSON, and saves partitioned Parquet files for editions, works, and authors at `/partitioned_data/eds_partitioned/`.
+     - **2. `openlib_working_df_partitions.ipynb`**: Loads the editions Parquet, preprocesses data (year extraction, country standardization, subject cleaning), and creates `df_eds` (decade, country, subject_clean) and `df_exp` (decade, country, subject) at `/partitioned_data/df_eds_partitioned/` and `/partitioned_data/df_exp_partitioned/`.
+     - **3. `openlib_final.ipynb`**: Loads `df_eds` and `df_exp`, performs analyses (e.g., publication counts, top subjects, subject pairings), and prints results.
 
-### 1. Partitioning
-The partitioning step prepares the DataFrames for efficient parallel processing:
-- **Notebook**: `openlib_partitions.ipynb`
-- **Process**:
-  - **df_works_final**: Partitioned by `decade` (derived from `first_publish_date`, e.g., "1900", "1910", ..., "Unknown"). Saved to `partitioned_data/works_partitioned/`.
-  - **df_authors_final**: Saved with default partitions to `partitioned_data/authors_partitioned/`.
-  - **df_eds_final**: Saved with default partitions to `partitioned_data/eds_partitioned/`.
-- **Output**:
-  - Parquet files in `partitioned_data/works_partitioned/` (e.g., `partition_decade=1900/`).
-  - Parquet files in `partitioned_data/authors_partitioned/` (e.g., `part-00000.parquet`).
-  - Console output with partition counts for verification.
+2. **Key Outputs**:
+   - **Parquet Files**:
+     - `/partitioned_data/eds_partitioned/` (initial editions, 12.96 GB).
+     - `/partitioned_data/df_eds_partitioned/` (`df_eds`: decade, country, subject_clean).
+     - `/partitioned_data/df_exp_partitioned/` (`df_exp`: decade, country, subject).
+   - **Analyses**: Printed summaries in `openlib_final.ipynb` (e.g., top countries, subject co-occurrences).
+   - **Visualizations**: (Commented out) Pandas-based plots for trends and distributions.
 
-### 2. Exploratory Data Analysis (EDA)
-The EDA steps:
-- **Notebook**: `openlib_eda.ipynb` (for uploading)
-- **Steps**:
-- Timeline of Editions (1900–2025, by Decade):
-  - Approach: Count editions per decade using publish_date.
-  - Fields: publish_date, derived decade.
-  - Output: Bar chart.
-  - Data: Editions only.
-- Top 100 Countries by Edition Count:
-  - Approach: Group by publish_country, count editions.
-  - Fields: publish_country (map to MARC 21 country codes)
-  - Output: Table or bar chart (top 20 visualized for brevity).
-  - Data: Editions only.
-- Top 50 Global Subjects (Editions):
-  - Approach: Use subjects from editions.
-  - Fields: subjects.
-  - Output: Bar chart of top 50 subjects.
-  - Data: Editions only.
-- Top 50 Authors Globally (Editions):
-  - Approach: Use author_keys from editions, join with df_authors_final to get author_name.
-  - Fields: author_keys, author_name (via join).
-  - Output: Bar chart of top 50 authors by edition count.
-  - Data: Editions + authors join.
-- Top 20 Subjects per Decade (Editions):
-  - Approach: Use edition subjects grouped by decade.
-  - Fields: subjects, decade.
-  - Output: Bar charts for the last 5 decades.
-  - Data: Editions only.
-- Top 20 Subjects per Country per Decade (Editions):
-  - Approach: Use edition subjects, publish_country, decade.
-  - Fields: subjects, publish_country, decade.
-  - Output: Bar charts for top 5 countries, last 5 decades.
-  - Data: Editions only.
-- Top 10 Authors per Decade (Editions):
-  - Approach: Use author_keys by decade, join with df_authors_final for author_name.
-  - Fields: author_keys, decade, author_name (via join).
-  - Output: Table or bar chart.
-  - Data: Editions + authors join.
-- Top 10 Authors per Country per Decade (Editions):
-  - Approach: Use author_keys, publish_country, decade, join with df_authors_final for author_name.
-  - Fields: author_keys, publish_country, decade, author_name (via join).
-  - Output: Table or bar chart.
-  - Data: Editions + authors join.
-- Top 10 Countries for Top 10 Global Subjects (Editions):
-  - Approach: Use edition subjects, publish_country.
-  - Fields: subjects, publish_country.
-  - Output: Heatmap?
-  - Data: Editions only.
-- Top 10 Countries for Top Subject per Decade (Editions):
-  - Approach: Use edition subjects, publish_country, decade.
-  - Fields: subjects, publish_country, decade.
-  - Output: Table or bar chart.
-  - Data: Editions only.
+3. **Customize Analyses**:
+   - Modify Spark queries in `openlib_final.ipynb` for custom metrics (e.g., specific subjects, regions).
+   - Uncomment visualization code and adjust plotting parameters for graphical outputs.
